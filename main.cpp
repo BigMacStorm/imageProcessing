@@ -16,45 +16,46 @@ void readImage(string fname, ImageType& image);
 //writes the image from the image class to a file specified by fname
 void writeImage(string fname, ImageType& image);
 
-
 //reads meta data of the image.
 void readImageHeader(string fname, int& N, int& M, int& Q, bool& type);
+
+//image shrink function
+void shrinkImage(ImageType oldImage, ImageType& newImage, int shrinkVal, string newImageFname);
+
+//expand image function
+void expandImage(ImageType oldImage, ImageType& newImage, int growVal, string newImageFName);
 
 int main()
 {
 
-/*
-The following is the order of steps needed to read and write an image.
-This code opens the lenna.pgm image, and then saves it again
-*/
+	/*
+	The following is the order of steps needed to read and write an image.
+	This code opens the lenna.pgm image, and then saves it again
+	*/
+	//Decliration of variables, latter the file name will be passed as an argument
+	string fileName = "lenna32x32.pgm";
+	int N, M, Q;
+	bool imageFormat;
+	//Before you declare your Image Type Object, you have to run readImageHeader to get the info of the image
+	//N,M,Q, and imageFormat are all passed by refrence.
+	readImageHeader(fileName, N,M,Q,imageFormat);
+	//Only after the readImageHeader is run, can you create your imageType Object in this format.
+	ImageType myImage(N,M,Q);
+	//Will read the image in and store the pixel value in myImage.pixelValue
+	readImage(fileName,myImage);
+	//will Write the image in myImage into the given new file name.
+	
+	//For testing we will shrink to a 128x128 image
 
 
-//Decliration of variables, latter the file name will be passed as an argument
-string fileName = "lenna.pgm";
+	//input the new size of the image
+	ImageType newImage(256,256,255);
 
-//Int values needed for image construction, N and M are the dimenstions of the array
+	expandImage(myImage,newImage,8,"ExpandedLenna32x32to256x256.pgm");
 
-//Q is a letter that im sure surves some purpose that im just not sure of right now. same for imageFormat.
-
-int N, M, Q;
-bool imageFormat;
-
-
-//Before you declare your Image Type Object, you have to run readImageHeader to get the info of the image
-//N,M,Q, and imageFormat are all passed by refrence.
-readImageHeader(fileName, N,M,Q,imageFormat);
-
-
-//Only after the readImageHeader is run, can you create your imageType Object in this format.
-ImageType myImage(N,M,Q);
-
-
-//Will read the image in and store the pixel value in myImage.pixelValue
-readImage(fileName,myImage);
-
-
-//will Write the image in myImage into the given new file name.
-writeImage("newImage.pgm", myImage);
+	//for the shrink value aka that 8 right there, do the original image size divided by the new image size
+	//shrinkImage( myImage, newImage, 8, "lenna32x32.pgm");
+	
 
 
 return (0);
@@ -102,6 +103,8 @@ ifp.getline(header,100,'\n');
 
  Q=strtol(header,&ptr,0);
 
+ cout<<Q<<endl;
+
 
 
  charImage = (unsigned char *) new unsigned char [M*N];
@@ -128,7 +131,7 @@ ifp.getline(header,100,'\n');
  //
 
  int val;
-cout <<N<<endl<<M<<endl;
+
 
 
  for(i=0; i<N; i++)
@@ -240,3 +243,80 @@ ifp.getline(header,100,'\n');
 
 
 }
+
+
+/*
+shrink Image funtion.
+Writen By Jeremiah Berns.
+Dependincies: image.h, image.cpp
+Discription: Will take in the old image, and the new image, and the pixel value
+	    based apon the shrink value passed to it.  It will place that value
+	    from the old image into the new image, then save the new image with
+   	    the passed in file name. 
+*/
+void shrinkImage(ImageType oldImage, ImageType& newImage, int shrinkVal, string newImageFname)
+{
+	//Variable decliration
+	int rows, col, Q, tempValue;
+	
+
+	//Variable setting
+	oldImage.getImageInfo(rows, col, Q);
+
+	for(int i=0; i<rows;i++)
+	  {
+	    for(int j=0;j<col;j++)
+	      {
+		if(i%shrinkVal == 0 && j%shrinkVal ==0)
+		  {
+		    oldImage.getPixelVal(i,j, tempValue);
+		    newImage.setPixelVal(i/shrinkVal,j/shrinkVal,tempValue);
+		  }
+	      }
+	    
+	  }
+
+	writeImage(newImageFname, newImage);
+
+
+}
+
+
+/*
+Expand image function
+Writen by: Jeremiah Berns
+Dependincies, image.cpp, image.h
+Discription: Will accept the shrunken image, the grow size of the image, and then
+	     expand the image back to 256x256
+*/
+
+void expandImage(ImageType oldImage, ImageType& newImage, int growVal, string newImageName)
+{
+  //Variable decliration
+    int rows, cols, Q, tempValue;
+	
+
+  //Variable setting
+    oldImage.getImageInfo(rows, cols, Q);
+
+    for(int i=0;i<rows;i++)
+      {
+	for(int j=0;j<cols;j++)
+	  {
+	  oldImage.getPixelVal(i,j, tempValue);
+	  for(int k=0;k<growVal;k++)
+	    {
+	      for(int l=0;l<growVal;l++)
+	        {
+		newImage.setPixelVal(i*growVal+k,j*growVal+l,tempValue);
+		}
+	    }
+	  }
+      }
+
+  writeImage(newImageName, newImage);
+
+}
+
+
+
