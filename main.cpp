@@ -25,6 +25,8 @@ void shrinkImage(ImageType oldImage, ImageType& newImage, int shrinkVal, string 
 //expand image function
 void expandImage(ImageType oldImage, ImageType& newImage, int growVal, string newImageFName);
 
+void histogramEq(ImageType oldImage, ImageType& newImage, string newImageName);
+
 int main()
 {
 
@@ -33,7 +35,7 @@ int main()
 	This code opens the lenna.pgm image, and then saves it again
 	*/
 	//Decliration of variables, latter the file name will be passed as an argument
-	string fileName = "lenna32x32.pgm";
+	string fileName = "lenna.pgm";
 	int N, M, Q;
 	bool imageFormat;
 	//Before you declare your Image Type Object, you have to run readImageHeader to get the info of the image
@@ -51,7 +53,7 @@ int main()
 	//input the new size of the image
 	ImageType newImage(256,256,255);
 
-	expandImage(myImage,newImage,8,"ExpandedLenna32x32to256x256.pgm");
+	histogramEq(myImage, newImage, "EQLenna.pgm");
 
 	//for the shrink value aka that 8 right there, do the original image size divided by the new image size
 	//shrinkImage( myImage, newImage, 8, "lenna32x32.pgm");
@@ -315,6 +317,71 @@ void expandImage(ImageType oldImage, ImageType& newImage, int growVal, string ne
       }
 
   writeImage(newImageName, newImage);
+
+}
+
+
+/*
+Histogram Equalization function
+Written by: Jeremiah Berns
+Dependincies:image.h, image.cpp
+Discription:  This function will perform the histogram equalization algorithem to the oldImage
+             and will output the newImage with the given newImageName.  
+*/
+
+
+void histogramEq(ImageType oldImage, ImageType& newImage, string newImageName)
+{
+  int rows, cols, Q, pixelValue, pixelCount;
+  oldImage.getImageInfo(rows,cols,Q);
+  pixelCount = rows*cols;
+  int adjustedHistogram[Q];
+  double histogramArray[Q], equalizedHistogram[Q];
+  double probabilityArray[Q], cumulativeProbability[Q], probTotal=0;
+ 
+
+  for (int i = 0; i<Q;i++)
+    {
+    histogramArray[i] = 0;
+    equalizedHistogram[i] = 0;
+
+    }
+
+  for(int i=0; i<rows;i++)
+    {
+      for(int j=0; j<cols;j++)
+        {
+	  oldImage.getPixelVal(i,j,pixelValue);
+  	  histogramArray[pixelValue]+=1;
+	}
+    }
+
+  for(int i=0;i<Q;i++)
+    {
+     probTotal+= histogramArray[i]/pixelCount;
+    
+     cumulativeProbability[i] = probTotal;
+     cumulativeProbability[i] = cumulativeProbability[i]*255;
+     adjustedHistogram[i] = cumulativeProbability[i];
+     cout<<adjustedHistogram[i]<<endl;
+    }
+
+  for(int i=0; i<rows;i++)
+    {
+      for(int j=0; j<cols;j++)
+        {
+	  oldImage.getPixelVal(i,j,pixelValue);
+  	  newImage.setPixelVal(i,j,adjustedHistogram[pixelValue-1]);
+	}
+    }
+
+  writeImage(newImageName, newImage);
+	
+
+
+
+
+
 
 }
 
