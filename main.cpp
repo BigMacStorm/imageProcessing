@@ -5,7 +5,9 @@
 #include "image.cpp"
 #include <cstdlib>
 #include <cstring>
-
+#include <math.h>
+#include <ctime>
+#include <algorithm>
 
 
 using namespace std;
@@ -26,6 +28,14 @@ void shrinkImage(ImageType oldImage, ImageType& newImage, int shrinkVal, string 
 void expandImage(ImageType oldImage, ImageType& newImage, int growVal, string newImageFName);
 
 void histogramEq(ImageType oldImage, ImageType& newImage, string newImageName);
+
+void padImage( ImageType& paddedImage, ImageType oldImage, int padValue);
+
+void sharpenImage(ImageType oldImage, ImageType& sharpImage, string maskType,int padVal);
+
+void saltAndPeppaNoise(ImageType& oldImage, int distortionPercent);
+
+void medianFilter(ImageType oldImage, ImageType& medianImage, int padVal);
 
 int main()
 {
@@ -51,17 +61,452 @@ int main()
 
 
 	//input the new size of the image
-	ImageType newImage(256,256,255);
 
-	histogramEq(myImage, newImage, "EQLenna.pgm");
 
-	//for the shrink value aka that 8 right there, do the original image size divided by the new image size
-	//shrinkImage( myImage, newImage, 8, "lenna32x32.pgm");
+	//create the pad value, value will add that man zeros from the edge of the image, IE value of 1 will be 1 set of zeros around the edge
+	int padValue = 1;
+
+	//create the padded image with the extra length needed to support the padding
+	ImageType paddedImage(N+(padValue*2),M+(padValue*2),Q);
+	ImageType sharpImage(N,M,Q);
+
+	
+
+	
+	
+	//place the old image inside the padded image
+	padImage( paddedImage,myImage, padValue);
+
+
+	/* uncomment for salt and peper and median filter
+	saltAndPeppaNoise(myImage,10);
+	medianFilter(paddedImage, sharpImage, padValue);
+	*/
+	
+	//performs the specified shappen function, either, "Prewitt", "Sobel", or "Laplacian" is case sensitive.
+	//also requiers the padValue for calculations
+
+	/* uncomment and change sharpening type for shaprening filter
+	sharpenImage(paddedImage, sharpImage, "Laplacian", padValue);
+	*/
+	
+
+	
+
+	
 	
 
 
 return (0);
 }
+
+/*
+medianFilter:
+Writen By: Jeremiah Berns
+Description:	Will take an image, and apply the median filtering to it.  It will then output the image to a file.
+*/
+
+
+void medianFilter(ImageType padded, ImageType& medianImage, int padVal)
+{
+	//varibale decleration
+	int tempMatrix[3][3], flatMatrix[9];
+	int N,M,Q,padN,padM, tempPixel;
+	padded.getImageInfo(padN,padM,Q);
+
+	//main loop to go through the function
+	for(int i=padVal; i<padN-padVal;i++)
+	{
+		for(int j=padVal;j<padM-padVal;j++)
+		{
+			
+			for (int k=0;k<3;k++)
+			{
+				//builds the 3x3 matrix 
+				for(int l=0;l<3;l++)
+				{
+					padded.getPixelVal(i-padVal+k,j-padVal+l,tempPixel);
+					tempMatrix[k][l] = tempPixel;
+					
+				}
+				//converts the 3x3 matrix to a flat matix
+				for(int m=0;m<3;m++)
+				{
+					for(int n=0;n<3;n++)
+					{
+						flatMatrix[m*3+n] = tempMatrix[n][m];
+					}
+
+				}
+				
+			}
+			//sort the matrix, and place the median value in the new image
+			sort(flatMatrix,flatMatrix+9);
+			medianImage.setPixelVal(i-padVal,j-padVal, flatMatrix[4]);
+			
+		}
+	}
+
+//write the image
+writeImage("MedianFilter.pgm",medianImage);
+}
+
+
+
+/*
+SaltAndPeppaNoise:
+Written by: Jeremiah Berns
+Dependincies: ctime, Image.h, Image.cpp
+Description:	Will take the passed image, and the degrigation percentage, then apply salt and pepper noise to the image
+		based on how much of the image should be distroted. 
+*/
+
+void saltAndPeppaNoise(ImageType& oldImage, int distortionPercent)
+{
+	int N,M,Q, totalPix, numOfDistortions;
+	oldImage.getImageInfo(N,M,Q);
+	totalPix = N*M;
+	numOfDistortions = totalPix/(100/distortionPercent);
+	cout<<numOfDistortions<<endl;
+	
+	srand(time(0));
+	
+	for(int i=0;i<numOfDistortions;i++)
+	{
+		oldImage.setPixelVal(rand()%256, rand()%256, 255);
+	}
+
+writeImage("saltAndPeppa.pgm", oldImage);
+	
+}
+
+
+
+/*
+SharpenImage:
+Writen by: Jeremiah Berns
+dependencies: image.h, image.cpp, math.h
+Discription:	This funtion will take in a padded imageType opbject, the new image to store the sharp image,
+		the value of the padding applied to the padded image, and the name of the sharpening to be 
+		done.  It will perform the desired sharpening, if the selected sharpening type generates both
+		a X, and Y gradient, then those images will be printed as well. 
+
+*/
+
+void sharpenImage(ImageType padded, ImageType& sharpImage, string maskType,int padVal)
+{
+
+	//Variable decliration.
+	int N,M,Q,padN,padM, tempValX=0, tempValY=0, tempPixel,tempPixelTwo;
+	int prewittX[3][3],prewittY[3][3], sobelX[3][3],sobelY[3][3], laplacian[3][3];
+	sharpImage.getImageInfo(N,M,Q);
+	padded.getImageInfo(padN,padM,Q);
+
+	//load masks
+
+	//Prewitt
+	prewittX[0][0] = prewittX[1][0] =prewittX[2][0] = -1;
+	prewittX[0][1] = prewittX[1][1] =prewittX[2][1] = 0;
+	prewittX[0][2] = prewittX[1][2] =prewittX[2][2] = 1;
+
+	prewittY[0][0] = prewittY[0][1] =prewittY[0][2] = -1;
+	prewittY[1][0] = prewittY[1][1] =prewittY[1][2] = 0;
+	prewittY[2][0] = prewittY[2][1] =prewittY[2][2] = 1;
+	
+	//Sobel
+	sobelX[0][0] = sobelX[2][0] = -1;
+	sobelX[1][0] = -2;
+	sobelX[0][1] = sobelX[1][1] = sobelX[2][1] = 0;
+	sobelX[0][2] = sobelX[2][2] = 1;
+	sobelX[1][2] = 2;
+	
+	sobelY[0][0] = sobelY[0][2] = -1;
+	sobelY[0][1] = -2;
+	sobelY[1][0] = sobelY[1][1] = sobelY[1][2] = 0;
+	sobelY[2][0] = sobelY[2][2] = 1;
+	sobelY[2][1] = 2;
+
+
+	//laplacian
+
+	laplacian[0][0]=laplacian[0][2]=laplacian[2][0]=laplacian[2][2] = 0;
+	laplacian[1][0]=laplacian[0][1]=laplacian[2][1]=laplacian[1][2] = 1;
+	laplacian[1][1] = -4;
+
+	//If prewitt sharpening
+	if (maskType == "Prewitt")
+	{
+		//gradient mask of both the x and y direction
+		ImageType gradX(N,M,Q);
+		ImageType gradY(N,M,Q);
+		
+
+		//main loop to go through the function
+		for(int i=padVal; i<padN-padVal;i++)
+		{
+			for(int j=padVal;j<padM-padVal;j++)
+			{
+				//inner loop that interates over a 3x3 area, applies the mask, then sets the calculated convolution value to the gradX and GradY masks
+				for (int k=0;k<3;k++)
+				{
+					for(int l=0;l<3;l++)
+					{
+						padded.getPixelVal(i-padVal+k,j-padVal+l,tempPixel);
+						tempValY += tempPixel* prewittY[k][l];
+						tempValX+= tempPixel* prewittX[k][l];
+					}
+				}
+				if(tempValX > 255)
+				{
+					tempValX = 255;
+				}
+
+				else if(tempValX < 0)
+				{
+					tempValX = 0;
+				}
+
+				if(tempValY > 255)
+				{
+					tempValY = 255;
+				}
+
+				else if(tempValY < 0)
+				{
+					tempValY = 0;
+				}
+
+				gradY.setPixelVal(i-padVal,j-padVal,tempValY);
+				gradX.setPixelVal(i-padVal,j-padVal,tempValX);
+				tempValX=0;
+				tempValY=0;
+			}
+		}
+
+	//output of the gradX and grad Y images
+	writeImage("prewittGradX.pgm", gradX);
+	writeImage("prewittGradY.pgm", gradY);
+
+	tempValX = tempValY = 0;
+
+	//calculation of the combined grad x and y images
+	for(int i=0;i<N;i++)
+	{
+		for(int j=0;j<M;j++)
+		{
+
+			gradX.getPixelVal(i,j,tempPixel);
+			gradY.getPixelVal(i,j,tempPixelTwo);
+			tempPixel = tempPixel*tempPixel;
+			tempPixelTwo = tempPixelTwo*tempPixelTwo;
+			
+			tempPixel = tempPixel+tempPixelTwo;
+			tempPixel = sqrt(tempPixel);
+			if(tempPixel > 255)
+			{
+				tempPixel = 255;
+			}
+			
+			sharpImage.setPixelVal(i,j,tempPixel);
+			tempPixel = tempPixelTwo = 0;
+			
+		}
+	
+	}
+
+	//the final prewitt sharp image
+	writeImage("PrewittShapImage.pgm",sharpImage);
+
+		
+	}
+	
+	//if sobel
+	else if (maskType == "Sobel")
+	{
+		//decleration of the grad x and grad y images
+		ImageType gradX(N,M,Q);
+		ImageType gradY(N,M,Q);
+		
+		//main loop to calculate the gradx and grady images
+		for(int i=padVal; i<padN-padVal;i++)
+		{
+			for(int j=padVal;j<padM-padVal;j++)
+			{
+				//inner loop dividing the image into 3x3 areas to apply the convolution of the mask
+				for (int k=0;k<3;k++)
+				{
+					for(int l=0;l<3;l++)
+					{
+						padded.getPixelVal(i-padVal+k,j-padVal+l,tempPixel);
+						tempValY += tempPixel* sobelY[k][l];
+						tempValX+= tempPixel* sobelX[k][l];
+					}
+				}
+				if(tempValX > 255)
+				{
+					tempValX = 255;
+				}
+
+				else if(tempValX < 0)
+				{
+					tempValX = 0;
+				}
+
+				if(tempValY > 255)
+				{
+					tempValY = 255;
+				}
+
+				else if(tempValY < 0)
+				{
+					tempValY = 0;
+				}
+
+				gradY.setPixelVal(i-padVal,j-padVal,tempValY);
+				gradX.setPixelVal(i-padVal,j-padVal,tempValX);
+				tempValX=0;
+				tempValY=0;
+			}
+		}
+
+	//outputs the gradX and gradY images
+	writeImage("SobelGradX.pgm", gradX);
+	writeImage("SobelGradY.pgm", gradY);
+
+	tempValX = tempValY = 0;
+
+	//calculates the final sharpened image
+	for(int i=0;i<N;i++)
+	{
+		for(int j=0;j<M;j++)
+		{
+
+			gradX.getPixelVal(i,j,tempPixel);
+			gradY.getPixelVal(i,j,tempPixelTwo);
+			tempPixel = tempPixel*tempPixel;
+			tempPixelTwo = tempPixelTwo*tempPixelTwo;
+			
+			tempPixel = tempPixel+tempPixelTwo;
+			tempPixel = sqrt(tempPixel);
+			if(tempPixel > 255)
+			{
+				tempPixel = 255;
+			}
+			
+			sharpImage.setPixelVal(i,j,tempPixel);
+			tempPixel = tempPixelTwo = 0;
+			
+		}
+	
+	}
+
+	//writes the sobel sharppened image
+	writeImage("SobelSharpImage.pgm",sharpImage);
+
+	}
+
+	//if lapacian
+	else if (maskType == "Laplacian")
+	{
+		
+		
+		//main loop to calculate the laplacian sharppened mask
+		for(int i=padVal; i<padN-padVal;i++)
+		{
+			for(int j=padVal;j<padM-padVal;j++)
+			{
+				for (int k=0;k<3;k++)
+				{
+					for(int l=0;l<3;l++)
+					{
+						padded.getPixelVal(i-padVal+k,j-padVal+l,tempPixel);
+						
+						tempValX+= tempPixel* laplacian[k][l];
+					}
+				}
+				if(tempValX > 255)
+				{
+					tempValX = 255;
+				}
+
+				else if(tempValX < 0)
+				{
+					tempValX = 0;
+				}
+
+				
+
+				
+				sharpImage.setPixelVal(i-padVal,j-padVal,tempValX);
+				tempValX=0;
+				
+			}
+		}
+
+
+	//outputs the laplacian sharp image
+	writeImage("lapacianSharp.pgm", sharpImage);
+	
+
+	tempValX = tempValY = 0;
+	
+
+
+	
+	}
+
+	//if you spelled the type of image wrong....dont do that
+	else
+	{
+	cout<<"No valid mask type"<<endl;
+	}
+	
+
+}
+
+
+/*
+PadImage: 
+Writen by: Jeremiah Berns
+dependencies: Image.h, image.cpp
+Discription: PadImage will take in 2 image objects, the old image, and the new image, which is the size of the old image,
+		plus 2x the pad value.  This function will then place the image in the center of the padded image and return
+		it.
+*/
+
+void padImage( ImageType& paddedImage, ImageType oldImage, int padValue)
+{
+
+	//variable declaration
+	int N,M,Q,tempValue;
+	
+	
+	//get paddImage info
+	paddedImage.getImageInfo(N,M,Q);
+
+	//zero out padded image
+	for(int i=0; i<N;i++)
+	{
+		for(int j=0; j<M;j++)
+			{
+				paddedImage.setPixelVal(i,j,0);
+			}
+	}
+	//loop through the padded image, and place the old image with in it. 
+	for(int i=padValue;i<N-padValue;i++)
+	{
+		for(int j = padValue;j<M-padValue;j++)
+		{
+			oldImage.getPixelVal(i-padValue,j-padValue,tempValue);
+			paddedImage.setPixelVal(i,j,tempValue);
+			
+		}
+		
+	}
+
+
+}
+
 
 
 
