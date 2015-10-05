@@ -8,6 +8,7 @@
 #include <math.h>
 #include <ctime>
 #include <algorithm>
+#include <vector>
 
 using namespace std;
 
@@ -157,46 +158,132 @@ void readImageHeader(string fname, int& N, int& M, int& Q, bool& type){
 	ifp.close();
 }
 
+void padImage( ImageType& paddedImage, ImageType oldImage, int padValueX, int padValueY){
+	//variable declaration
+	int N,M,Q,tempValue;
+	
+	//get paddImage info
+	paddedImage.getImageInfo(N,M,Q);
+
+	//zero out padded image
+	for(int i=0; i<N;i++)
+	{
+		for(int j=0; j<M;j++)
+			{
+				paddedImage.setPixelVal(i,j,0);
+			}
+	}
+
+	//loop through the padded image, and place the old image with in it. 
+	for(int i=padValueX;i<N-padValueX;i++)
+	{
+		for(int j = padValueY;j<M-padValueY;j++)
+		{
+			oldImage.getPixelVal(i-padValueX,j-padValueY,tempValue);
+			paddedImage.setPixelVal(i,j,tempValue);
+		}
+		
+	}
+}
+
+void correlation(ImageType image, int sizeOfMaskX, int sizeOfMaskY, vector<int> maskArray, string printName){
+
+	int N,M,Q,temp, temp2;
+	int count;
+	long long int temp3;
+
+	//First thing is to make a copy of the image before padding anything.
+	ImageType newImage(image);
+
+	//now, pad the image depending on size of mask.
+	image.getImageInfo(N, M, Q);
+	int padValueX = (sizeOfMaskX-1)/2;
+	int padValueY = (sizeOfMaskY-1)/2;
+	ImageType paddedImage(N+padValueX*2, M+padValueY*2, Q);
+	padImage(paddedImage, image, padValueX, padValueY);
+
+	//iteration over image with mask now.
+	//first two loops handle iteration across image
+	//second two for loops handle the math
+	int max = 0;
+	for(int x=padValueX; x<N+padValueX; x++){
+		for(int y=padValueY; y<M+padValueY; y++){
+			temp = 0;
+			count = 0;
+			for(int a=x-padValueX; a<x+padValueX; a++){
+				for(int b=y-padValueY; b<y+padValueY; b++){
+					paddedImage.getPixelVal(a, b, temp2);
+					temp += temp2*maskArray[count];
+					count++;
+				}
+			}
+			if(temp>max)max=temp;
+			newImage.setPixelVal(x-padValueX, y-padValueY, temp);			
+		}
+	}
+	newImage.getImageInfo(N,M,Q);
+	for(int x=0; x<N; x++){
+		for(int y=0; y<M; y++){
+			newImage.getPixelVal(x, y, temp);
+			temp3 = temp;
+			temp3 *= 255;
+			temp3 /= max;
+			if(temp3 < 0) cout << temp3 << endl;
+			temp = temp3;
+			newImage.setPixelVal(x, y, temp);
+		}
+	}
+
+
+	writeImage(printName, newImage);
+}
+
+void makeMask(string fileName, int& xSize, int& ySize, vector<int>& maskArray){
+	int N, M, Q, temp;
+	bool imageFormat;
+
+	readImageHeader(fileName, N,M,Q, imageFormat);
+	ImageType image(N,M,Q);
+	readImage(fileName, image);
+
+	xSize = N;
+	ySize = M;
+
+	maskArray.resize(N*M);
+
+	for(int x=0; x<N; x++){
+		for(int y=0; y<M; y++){
+			image.getPixelVal(x, y, temp);
+			maskArray[x*N+y] = temp;
+			cout << temp << " ";
+		}
+		cout << endl;
+	}
+
+	cout << xSize << " " << ySize << endl;
+}
+
 int main(){
 
-	string fileName = "lenna.pgm";
+	string fileName = "./images/Image.pgm";
 	int N, M, Q;
 	bool imageFormat;
+
+	int xSize, ySize;
 
 	//Before you declare your Image Type Object, you have to run readImageHeader to get the info of the image
 	//N,M,Q, and imageFormat are all passed by refrence.
 	readImageHeader(fileName, N,M,Q,imageFormat);
 
 	//Only after the readImageHeader is run, can you create your imageType Object in this format.
-	ImageType myImageLenna(N,M,Q);
+	ImageType myImage(N,M,Q);
 
 	//Will read the image in and store the pixel value in myImage.pixelValue
-	readImage(fileName,myImageLenna);
+	readImage(fileName,myImage);
 
+	vector<int> padArray;
+	makeMask("./images/Pattern.pgm", xSize, ySize, padArray);
+	correlation(myImage, xSize, ySize, padArray, "output.pgm");
 
-	//create the pad value, value will add that man zeros from the edge of the image, IE value of 1 will be 1 set of zeros around the edge
-	int padValue = 1;
-
-	//create the padded image with the extra length needed to support the padding
-	ImageType paddedImage(N+(padValue*2),M+(padValue*2),Q);
-	ImageType sharpImage(N,M,Q);
-
-	
-	//place the old image inside the padded image
-	padImage( paddedImage,myImage, padValue);
-
-
-	/* uncomment for salt and peper and median filter
-	saltAndPeppaNoise(myImage,10);
-	medianFilter(paddedImage, sharpImage, padValue);
-	*/
-	
-	//performs the specified shappen function, either, "Prewitt", "Sobel", or "Laplacian" is case sensitive.
-	//also requiers the padValue for calculations
-
-	/* uncomment and change sharpening type for shaprening filter
-	sharpenImage(paddedImage, sharpImage, "Laplacian", padValue);
-	*/
-	
 return (0);
 }
