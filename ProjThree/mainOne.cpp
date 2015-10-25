@@ -78,8 +78,11 @@ int main()
 //1 part a
 
 ofstream fout;
+ifstream fin;
+
 float data[8] = {2,3,4,4};
 int N = 4;
+
 	//DFT, stored in from <real>, <imaginary>
 	fft(data-1,N,-1);
 	fout.open("onePartADFT.txt");
@@ -143,12 +146,62 @@ int N = 4;
 	fout<<atan(dataTwo[i+1]/dataTwo[i])<<endl;
 	}
 	fout.close();
+
+
+/////////////////////////////////////////////////////////////////
+//Part C
+	
+	N = 128;
+	float dataThree[256];
+	int index = 0;
+	string temp;
+	fin.open("Rect_128.dat");
+	
+	for(int i=0;i<N*2;i++)
+	{
+	dataThree[i]=0;
+	}
+	while(fin.good())
+	{
+	getline(fin,temp);
+	cout<<index<<':'<<temp<<':';
+	dataThree[index] = atof(temp.c_str())*pow(-1,index);
+	cout<<dataThree[index]<<endl;
+	index++;
+	}
+
+	
+	
+	
+	//DFT stored useing <real>,<imaginary>
+	fft(dataThree-1, N, -1);
+	fout.open("onePartCDFT.txt");
+	for(int i=0;i<2*N;i+=2)
+	{
+		fout<<dataThree[i]<<','<<dataThree[i+1]<<endl;
+	}
+	fout.close();
+
+	//calculate the magnatude
+	fout.open("onePartCMagnitude.txt");
+	for(int i=0;i<N*2;i+=2)
+	{
+	fout<<sqrt(pow(dataThree[i],2)+pow(dataThree[i+1],2))<<endl;
+	}
+	fout.close();
+
+	//calculate Phase
+	fout.open("onePartCPhase.txt");
+	for(int i=0;i<N*2;i+=2)
+	{
+	fout<<atan(dataThree[i+1]/dataThree[i])<<endl;
+	}
+	fout.close();
 	
 
-
 	//inverse DFT
-	fft(dataTwo-1, N, 1);
-
+	fft(dataThree-1, N, 1);
+	
 
 return(0);
 }
