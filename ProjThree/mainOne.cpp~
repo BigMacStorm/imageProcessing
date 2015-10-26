@@ -80,7 +80,7 @@ int main()
 ofstream fout;
 ifstream fin;
 
-float data[8] = {2,3,4,4};
+float data[8] = {2,0,3,0,4,0,4,0};
 int N = 4;
 
 	//DFT, stored in from <real>, <imaginary>
@@ -104,7 +104,7 @@ int N = 4;
 	//inverse DFT
 	fft(data-1,N,1);
 	fout.open("onePartAInverseDFT.txt");
-	for(int i=0; i<N;i++)
+	for(int i=0; i<N*2;i++)
 		fout<<data[i] <<endl;
 	fout.close();
 
@@ -115,11 +115,13 @@ int N = 4;
 	float dataTwo[256];
 
 	//calculate function, centering it useing (-1)^x taking 128 samples
-	for (int i=0;i<128;i++)
+	for (int i=0;i<N*2;i+=2)
 	{
-	dataTwo[i] = cos((6.28318530717959*i*8)/128)*pow(-1,i);
-	dataTwo[i+128]=0;
+	dataTwo[i] = cos((6.28318530717959*(i/2)*8)/128)*pow(-1,(i/2));
+	dataTwo[i+1]=0;
 	}
+
+	
 
 
 	//DFT stored useing <real>,<imaginary>
@@ -148,6 +150,8 @@ int N = 4;
 	fout.close();
 
 
+
+
 /////////////////////////////////////////////////////////////////
 //Part C
 	
@@ -160,25 +164,31 @@ int N = 4;
 	for(int i=0;i<N*2;i++)
 	{
 	dataThree[i]=0;
+	
 	}
-	while(fin.good())
+
+	for(int i=0;i<2*N;i+=2)
 	{
 	getline(fin,temp);
-	cout<<index<<':'<<temp<<':';
-	dataThree[index] = atof(temp.c_str());
-	cout<<dataThree[index]<<endl;
-	index++;
+	dataThree[i] = atof(temp.c_str());
+	
 	}
+	fin.close();
+
+	
 
 	
 	
 	
 	//DFT stored useing <real>,<imaginary>
 	fft(dataThree-1, N, -1);
+
+	fout.clear();
 	fout.open("onePartCDFT.txt");
 	for(int i=0;i<2*N;i+=2)
 	{
 		fout<<dataThree[i]<<','<<dataThree[i+1]<<endl;
+	
 	}
 	fout.close();
 
@@ -194,13 +204,20 @@ int N = 4;
 	fout.open("onePartCPhase.txt");
 	for(int i=0;i<N*2;i+=2)
 	{
-	fout<<atan(dataThree[i+1]/dataThree[i])<<endl;
+	
+	fout<<atan(dataThree[i+1]/dataThree[i+1])<<endl;
 	}
 	fout.close();
 	
 
 	//inverse DFT
 	fft(dataThree-1, N, 1);
+	
+	
+	for(int i=0;i<256;i++)
+	{
+	cout<<dataThree[i]<<endl;
+	}
 	
 
 return(0);
