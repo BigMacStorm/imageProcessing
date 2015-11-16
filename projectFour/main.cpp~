@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
+#include <complex>
 #include <iostream>
 #include <cstdlib>
 #include "image.h"
@@ -325,10 +326,13 @@ int main(){
 	bool homo = false;
 	bool band = false;
 	bool blur = true;
+	bool inverse = false;
+	bool wein = false;
 	string fileName;
 	if(homo) fileName = "girl.pgm"; 
 	if(band) fileName = "boy_noisy.pgm"; 
 	if(blur) fileName = "lenna.pgm";
+	if(inverse || wein) fileName = "output4.pgm";
 	int N, M, Q;
 	int tempInt;
 	bool imageFormat;
@@ -353,9 +357,8 @@ int main(){
 	for(int x=0; x<N; x++){
 		for(int y=0; y<M; y++){
 			myImage.getPixelVal(x, y, tempInt);
-			if(band) tempInt = tempInt*pow(-1, (x+y));
+			if(band || blur || inverse || wein) tempInt = tempInt*pow(-1, (x+y));
 			if(homo) tempInt = log(tempInt);
-			if(blur) tempInt = tempInt + box_muller(0.0, 100.0);
 			temp[y] = tempInt;
 		}
 		real.push_back(temp);
@@ -365,14 +368,6 @@ int main(){
 
 	//call the function
 	fft2D(N, M, real, image, 1);
-
-	//calc the magnitude
-	magnitude = real;
-	for(int x=0; x<N; x++){
-		for(int y=0; y<M; y++){
-			magnitude[x][y] = 255*log(1+sqrt(pow(real[x][y], 2)+pow(image[x][y], 2)));
-		}
-	}
 	
 	if(homo){
 		//centers the real and imaginary frequencies
@@ -380,15 +375,14 @@ int main(){
 			for(int y=0; y<M; y++){
 				real[x][y] = real[x][y]*pow(-1,(x+y));
 				image[x][y] = image[x][y]*pow(-1,(x+y));
-			
 			}
 		}
 
 		//applies the homomorphic filter
 		double yh,yl,doh;
 
-		yh = .9;
-		yl = 1.2;
+		yh = 1.9;
+		yl = 0.9;
 		doh = 1.8;
 		
 		for(int x=0; x<N; x++){
@@ -410,6 +404,7 @@ int main(){
 
 	if(band){
 		//band reject code
+		magnitude = real;
 		int bandRange;
 		for(int i=0;i<N;i++)
 		{
@@ -425,58 +420,68 @@ int main(){
 
 		}	
 	}
+	cout << "asdf" << endl;
 
-	if(blur){
+	if(blur || inverse || wein){
+		complex<float> fake = sqrt(complex<float>(-1,0));
 		//need to generate H(u,v)
-		double T, a, b, left, right, middle;
+		complex <float> answer;
+		float T, a, b, group, k;
 		T = 1;
 		a = 0.1;
 		b = 0.1;
+		k = .001;
 		huv = real;
 		for(int x=0; x<N; x++){
 			for(int y=0; y<M; y++){
-				left = (T/(3.14159265358979*(x*a+y*b)))
-				huv[x][y] = *
-			}
+				group = (M_PI*((x*a)+(y*b)));
+				answer = (T/group);
+				answer = answer * sin(group) * exp(- fake*group);
+				huv[x][y] = answer.real() * pow(-1,(x+y));
+				if(x == 0 || y == 0)
+					huv[x][y] = 1.0;
+				if(blur) real[N-x-1][M-y-1] *= huv[x][y];
+				if(inverse) real[N-x-1][M-y-1] /= huv[x][y];
+				if(wein) real[N-x-1][M-y-1] = ((huv[x][y]*huv[x][y])/(huv[x][y]*huv[x][y]+k))*(real[N-x-1][M-y-1]/huv[x][y]);
+			} 
 		}		
 	}
-
-
-	for(int x=0; x<N; x++){
-		for(int y=0; y<M; y++){
-			myImage.setPixelVal(x, y, magnitude[x][y]);
-		}
-	}	
-	writeImage("128yes.pgm", myImage);
-
 	
 	//call again with inverse now
 	fft2D(N, M, real, image, -1);
 
 	for(int x=0; x<N; x++){
 		for(int y=0; y<M; y++){
-			if (band) real[x][y] = real[x][y]*pow(-1,(x+y));  
+			if (band || blur || wein || inverse) real[x][y] = real[x][y]*pow(-1,(x+y));  
 			if (homo) real[x][y] = exp(real[x][y]);  
-			
+			if (blur) real[x][y] = real[x][y] + box_muller(0,10);
 		}
-	}	
-
-
-	//print image to check	
+	}
+	//calc the normal
+	double max = 0;
+	double min = 0;
 	for(int x=0; x<N; x++){
 		for(int y=0; y<M; y++){
-			if(real[x][y] >255)
-			{
-				real[x][y]=255;
-			}
-			else if(real[x][y] <0)
-			{
-				real[x][y]=0;
-			}
-			myImage.setPixelVal(x, y, real[x][y]);
+			if(real[x][y] < min) min = real[x][y];
+			if(real[x][y] > max) max = real[x][y];
 		}
 	}
 
-	writeImage("output.pgm", myImage);
+	double temp3;	
+	cout << "min: " << min << endl;
+	cout << "max: " << max << endl;
+
+	for(int x=0; x<N; x++){
+		for(int y=0; y<M; y++){
+			temp3 = (real[x][y]+(min*-1))/double (max + (min*-1));
+			temp3 *= 255.0;
+			myImage.setPixelVal(x,y,(int)temp3);
+			if(temp3 < 0 || temp3 > 255) cout << temp3 << endl;
+		}
+	}	
+
+	writeImage("output4.pgm", myImage);
+	
+	
 	return 0;
 }
